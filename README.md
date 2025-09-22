@@ -17,6 +17,7 @@ I built this project to **strengthen my frontend development skills** and apply 
 - **Chart.js** – data visualization with graphs
 
 ## 📂 Project Structure
+```text
 expense-tracker/
 ├── public/ # HTML template and static files
 ├── src/ # Application source code
