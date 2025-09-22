@@ -1,39 +1,147 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { User, Mail, Lock, Moon, Sun, Shield, Trash2, Globe, CreditCard } from "lucide-react";
+import { User, Mail, Trash2 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { db } from "../../firebase";
+import { doc, setDoc, getDoc,deleteDoc,collection } from "firebase/firestore";
+import { deleteUser } from "firebase/auth";
 
 const Settings = () => {
   const { user } = useAuth();
-  const [darkMode, setDarkMode] = useState(
-    () => JSON.parse(localStorage.getItem("darkMode")) ?? true
-  );
+ 
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    name: user?.name || localStorage.getItem("name") || "",
-    email: user?.email || localStorage.getItem("email") || "",
-    avatar: user?.avatar || localStorage.getItem("avatar") || "",
+    name: "",
+    email: "",
+    avatar: "",
   });
 
-  // Save avatar and profile
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setFormData({ ...formData, avatar: reader.result });
-      localStorage.setItem("avatar", reader.result);
+  // Load profile from Firestore
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchProfile = async () => {
+      try {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          setFormData(userDoc.data());
+        } else {
+          // fallback if no doc yet
+          setFormData({
+            name: user.displayName || "",
+            email: user.email,
+            avatar: user.photoURL || "",
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching user profile:", err);
+      }
     };
-    reader.readAsDataURL(file);
+
+    fetchProfile();
+  }, [user]);
+
+  // ✅ Handle image upload via Cloudinary
+  const handleImageUpload = async (e) => {
+  const file = e.target.files[0];
+  if (!file || !user) return;
+
+  // 🔹 Show instant local preview while uploading
+  setFormData((prev) => ({ ...prev, avatar: URL.createObjectURL(file) }));
+
+  try {
+    const cloudName = "dacositq5"; 
+    const uploadPreset = "profile_pics";
+
+    const formDataCloud = new FormData();
+    formDataCloud.append("file", file);
+    formDataCloud.append("upload_preset", uploadPreset);
+    formDataCloud.append("folder", "avatars");
+
+    // Upload to Cloudinary
+    const res = await fetch(
+      `https://api.cloudinary.com/v1_1/dacositq5/image/upload`,
+      {
+        method: "POST",
+        body: formDataCloud,
+      }
+    );
+
+    const data = await res.json();
+
+    if (data.secure_url) {
+      // 🔹 Add transformations for faster optimized images
+      const optimizedUrl = data.secure_url.replace(
+        "/upload/",
+        "/upload/w_200,h_200,c_fill,q_auto,f_auto/"
+      );
+
+      // Save Cloudinary optimized image URL in state
+      setFormData((prev) => ({ ...prev, avatar: optimizedUrl }));
+    } else {
+      throw new Error("Cloudinary upload failed");
+    }
+  } catch (err) {
+    console.error("Error uploading image:", err);
+    alert("Failed to upload image.");
+  }
+};
+
+  // Save profile to Firestore
+  const handleSave = async () => {
+    if (!user) return;
+
+    try {
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          name: formData.name,
+          email: formData.email,
+          avatar: formData.avatar || "",
+        },
+        { merge: true }
+      );
+
+      setIsEditing(false);
+      alert("Profile updated successfully!");
+    } catch (err) {
+      console.error("Error updating profile:", err);
+      alert("Failed to update profile.");
+    }
   };
 
-  const handleSave = () => {
-    localStorage.setItem("name", formData.name);
-    localStorage.setItem("email", formData.email);
-    localStorage.setItem("avatar", formData.avatar);
-    setIsEditing(false);
-    alert("Profile updated successfully!");
-  };
+  const handleDelete = async () => {
+  if (!user) return;
+  const confirmDelete = window.confirm(
+    "Are you sure? This will permanently delete your account and all your data."
+  );
+  if (!confirmDelete) return;
+
+  try {
+    // 1️⃣ Delete user's profile doc
+    await deleteDoc(doc(db, "users", user.uid));
+
+    // 2️⃣ Delete all their transactions (if stored by uid)
+    const txSnapshot = await getDocs(
+      collection(db, "transactions")
+    );
+    txSnapshot.forEach(async (docSnap) => {
+      if (docSnap.data().uid === user.uid) {
+        await deleteDoc(docSnap.ref);
+      }
+    });
+
+    // 3️⃣ Delete Auth account
+    await deleteUser(user);
+
+    alert("Your account and all data have been deleted.");
+  } catch (err) {
+    console.error("Error deleting account:", err);
+    alert("Failed to delete account.");
+  }
+};
+
+  
 
   return (
     <div className="max-w-5xl w-full mx-auto p-6 space-y-6">
@@ -76,6 +184,7 @@ const Settings = () => {
             <div>
               <p className="text-white font-medium">{formData.name}</p>
               <p className="text-slate-400 text-sm">{formData.email}</p>
+
               {isEditing && (
                 <label className="text-blue-400 hover:text-blue-300 text-sm mt-1 cursor-pointer transition-colors block">
                   Change Picture
@@ -93,8 +202,7 @@ const Settings = () => {
           {/* Name */}
           <div>
             <label className="flex items-center space-x-2 text-slate-300 text-sm font-medium mb-2">
-              <User className="w-4 h-4" />
-              <span>Full Name</span>
+              <User className="w-4 h-4" /> <span>Full Name</span>
             </label>
             <input
               type="text"
@@ -116,11 +224,8 @@ const Settings = () => {
             <input
               type="email"
               value={formData.email}
-              onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
-              }
-              disabled={!isEditing}
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 transition-all duration-200 disabled:opacity-50"
+              disabled
+              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white opacity-60"
             />
           </div>
         </div>
@@ -143,112 +248,10 @@ const Settings = () => {
             </motion.button>
           </div>
         )}
+        
       </motion.div>
-
-      {/* Preferences */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50"
-      >
-        <h3 className="text-xl font-bold text-white mb-6">Preferences</h3>
-
-        <div className="space-y-6">
-          {/* Dark Mode Toggle */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              {darkMode ? (
-                <Moon className="w-5 h-5 text-slate-400" />
-              ) : (
-                <Sun className="w-5 h-5 text-slate-400" />
-              )}
-              <div>
-                <p className="text-white font-medium">Dark Mode</p>
-                <p className="text-slate-400 text-sm">Toggle dark/light theme</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                darkMode ? "bg-blue-600" : "bg-slate-600"
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  darkMode ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
-            </button>
-          </div>
-
-          {/* Language Preference */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Globe className="w-5 h-5 text-slate-400" />
-              <div>
-                <p className="text-white font-medium">Language</p>
-                <p className="text-slate-400 text-sm">Choose app language</p>
-              </div>
-            </div>
-            <select className="bg-slate-700/50 text-white px-3 py-2 rounded-lg border border-slate-600">
-              <option>English</option>
-              <option>Español</option>
-              <option>Français</option>
-            </select>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Billing Info */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50"
-      >
-        <h3 className="text-xl font-bold text-white mb-6">Billing</h3>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-white font-medium">Subscription Plan</p>
-            <p className="text-slate-400 text-sm">Free Tier</p>
-          </div>
-          <button className="flex items-center space-x-2 px-4 py-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors">
-            <CreditCard className="w-4 h-4" />
-            <span>Upgrade</span>
-          </button>
-        </div>
-      </motion.div>
-
-      {/* Security */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50"
-      >
-        <h3 className="text-xl font-bold text-white mb-6">
-          Security & Privacy
-        </h3>
-        <div className="space-y-4">
-          <button className="flex items-center space-x-3 w-full p-4 rounded-lg hover:bg-slate-700/30 transition-colors text-left">
-            <Shield className="w-5 h-5 text-blue-400" />
-            <div>
-              <p className="text-white font-medium">Two-Factor Authentication</p>
-              <p className="text-slate-400 text-sm">Add extra security</p>
-            </div>
-          </button>
-          <button className="flex items-center space-x-3 w-full p-4 rounded-lg hover:bg-slate-700/30 transition-colors text-left">
-            <Lock className="w-5 h-5 text-slate-400" />
-            <div>
-              <p className="text-white font-medium">Privacy Settings</p>
-              <p className="text-slate-400 text-sm">Manage your privacy</p>
-            </div>
-          </button>
-        </div>
-      </motion.div>
-
-      {/* Danger Zone */}
+      
+    {/* Danger Zone */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -263,13 +266,17 @@ const Settings = () => {
               Permanently delete your account and all data
             </p>
           </div>
-          <button className="flex items-center space-x-2 px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors">
+          <button
+          onClick={handleDelete}
+           className="flex items-center space-x-2 px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors">
             <Trash2 className="w-4 h-4" />
+            
             <span>Delete</span>
           </button>
         </div>
       </motion.div>
     </div>
+          
   );
 };
 

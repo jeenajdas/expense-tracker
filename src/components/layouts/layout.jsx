@@ -1,3 +1,4 @@
+// src/components/Layout.jsx
 import React, { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
@@ -14,21 +15,41 @@ export default function Layout() {
   }, []);
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      {/* Main content */}
-      <div
-        className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${
-          isDesktop ? "ml-64" : ""
-        }`}
-      >
-        <Header onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 p-6 overflow-y-auto">
-          <Outlet />
-        </main>
-      </div>
+    <div className="h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* Desktop Layout */}
+      {isDesktop ? (
+        <div className="flex h-full">
+          
+          <div className="w-64 flex-shrink-0">
+            <Sidebar isOpen={true} onClose={() => {}} />
+          </div>
+          
+          {/* Main content area */}
+          <div className="flex-1 flex flex-col min-w-0">
+            {/* Header */}
+            <Header onMenuClick={() => setSidebarOpen(true)} />
+            
+            {/* Scrollable Content */}
+            <main className="flex-1 overflow-y-auto p-6">
+              <Outlet />
+            </main>
+          </div>
+        </div>
+      ) : (
+        /* Mobile Layout */
+        <div className="flex flex-col min-h-screen">
+          {/* Mobile Sidebar Overlay */}
+          <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+          
+          {/* Header */}
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+          
+          {/* Scrollable Content */}
+          <main className="flex-1 overflow-y-auto p-6">
+            <Outlet />
+          </main>
+        </div>
+      )}
     </div>
   );
 }

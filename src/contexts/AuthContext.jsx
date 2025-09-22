@@ -1,5 +1,13 @@
 // src/contexts/AuthContext.js
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { auth } from "../firebase";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile,
+  onAuthStateChanged,
+} from "firebase/auth";
 
 const AuthContext = createContext();
 
@@ -17,84 +25,55 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated: false,
   });
 
-  // Load logged-in user from localStorage
+  // Watch Firebase auth state
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setAuthState({
-        user: JSON.parse(storedUser),
-        isAuthenticated: true,
-      });
-    }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setAuthState({ user, isAuthenticated: true });
+      } else {
+        setAuthState({ user: null, isAuthenticated: false });
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
-  // Save/remove user in localStorage
-  useEffect(() => {
-    if (authState.isAuthenticated && authState.user) {
-      localStorage.setItem("user", JSON.stringify(authState.user));
-    } else {
-      localStorage.removeItem("user");
-    }
-  }, [authState]);
-
-  // Auth Actions 
+  // Login with Firebase
   const login = async (email, password) => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const users = JSON.parse(localStorage.getItem("users")) || [];
-    const existingUser = users.find(
-      (u) => u.email === email && u.password === password
-    );
-
-    if (existingUser) {
-      setAuthState({ user: existingUser, isAuthenticated: true });
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
       return true;
-    }
-    return false;
-  };
-
-  const register = async (name, email, password) => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    let users = JSON.parse(localStorage.getItem("users")) || [];
-
-    if (users.some((u) => u.email === email)) {
+    } catch (error) {
+      console.error("Login failed:", error.message);
       return false;
     }
-
-    const newUser = {
-      id: Date.now().toString(),
-      name,
-      email,
-      password,
-      avatar: null, 
-    };
-
-    users.push(newUser);
-    localStorage.setItem("users", JSON.stringify(users));
-
-    setAuthState({ user: newUser, isAuthenticated: true });
-    return true;
   };
 
- 
-  const updateAvatar = (avatarBase64) => {
-    if (!authState.user) return;
-
-    const updatedUser = { ...authState.user, avatar: avatarBase64 };
-
-    // Update users list in localStorage too
-    let users = JSON.parse(localStorage.getItem("users")) || [];
-    users = users.map((u) =>
-      u.email === updatedUser.email ? updatedUser : u
-    );
-    localStorage.setItem("users", JSON.stringify(users));
-
-    // Update current logged-in user
-    setAuthState({ ...authState, user: updatedUser });
+  // Register with Firebase
+  const register = async (name, email, password) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      await updateProfile(userCredential.user, { displayName: name });
+      return true;
+    } catch (error) {
+      console.error("Registration failed:", error.message);
+      return false;
+    }
   };
 
-  const logout = () => {
+  // Update user avatar (using Firebase profile photo URL)
+  const updateAvatar = async (avatarUrl) => {
+    if (!auth.currentUser) return;
+    await updateProfile(auth.currentUser, { photoURL: avatarUrl });
+    setAuthState({ ...authState, user: auth.currentUser });
+  };
+
+  // Logout
+  const logout = async () => {
+    await signOut(auth);
     setAuthState({ user: null, isAuthenticated: false });
   };
 

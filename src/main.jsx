@@ -9,7 +9,9 @@ createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
+        <div className="dark min-h-screen bg-slate-900 text-white">
         <App />
+        </div>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>

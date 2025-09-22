@@ -1,19 +1,12 @@
 // src/pages/NewTransaction.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
-import { Plus, DollarSign, Calendar, Tag, FileText } from "lucide-react";
+import { Plus, IndianRupee, Calendar, Tag, FileText } from "lucide-react";
 import { useTransactions } from "../../contexts/TransactionContext";
 
 const categories = {
-  income: [
-    "Salary",
-    "Freelance",
-    "Investment",
-    "Business",
-    "Gift",
-    "Other",
-  ],
+  income: ["Salary", "Freelance", "Investment", "Business", "Gift", "Other"],
   expense: [
     "Food",
     "Transportation",
@@ -26,25 +19,45 @@ const categories = {
   ],
 };
 
-const NewTransaction = () => {
+const NewTransaction = ({ editTransactionProp, onEditComplete }) => {
+  const { addTransaction, updateTransaction } = useTransactions();
+
   const [activeTab, setActiveTab] = useState("expense");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { addTransaction } = useTransactions();
 
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
   } = useForm({
     defaultValues: {
       type: "expense",
+      category: "",
+      description: "",
+      amount: 0,
       date: new Date().toISOString().split("T")[0],
     },
   });
 
+  // Populate form if editing
+  useEffect(() => {
+    if (editTransactionProp) {
+      setActiveTab(editTransactionProp.type);
+      setValue("category", editTransactionProp.category);
+      setValue("description", editTransactionProp.description);
+      setValue("amount", editTransactionProp.amount);
+      setValue(
+        "date",
+        editTransactionProp.date || new Date().toISOString().split("T")[0]
+      );
+    }
+  }, [editTransactionProp, setValue]);
+
   const onSubmit = async (data) => {
     setIsSubmitting(true);
+
     try {
       const transactionData = {
         ...data,
@@ -52,8 +65,18 @@ const NewTransaction = () => {
         amount: Number(data.amount),
       };
 
-      addTransaction(transactionData);
+      if (editTransactionProp) {
+        // Update existing
+        await updateTransaction({ id: editTransactionProp.id, ...transactionData });
+        alert("✅ Transaction updated successfully!");
+        if (onEditComplete) onEditComplete(); // Optional callback to close edit mode
+      } else {
+        // Add new
+        await addTransaction(transactionData);
+        alert("✅ Transaction added successfully!");
+      }
 
+      // Reset form
       reset({
         type: activeTab,
         category: "",
@@ -61,10 +84,9 @@ const NewTransaction = () => {
         amount: 0,
         date: new Date().toISOString().split("T")[0],
       });
-
-      alert("✅ Transaction added successfully!");
-    } catch (error) {
-      alert("❌ Error adding transaction. Please try again.");
+    } catch (err) {
+      console.error(err);
+      alert("❌ Error saving transaction. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -72,19 +94,21 @@ const NewTransaction = () => {
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="mb-8"
       >
-        <h1 className="text-3xl font-bold text-white mb-2">New Transaction</h1>
+        <h1 className="text-3xl font-bold text-white mb-2">
+          {editTransactionProp ? "Edit Transaction" : "New Transaction"}
+        </h1>
         <p className="text-slate-400">
-          Add a new income or expense transaction
+          {editTransactionProp
+            ? "Update your transaction details"
+            : "Add a new income or expense transaction"}
         </p>
       </motion.div>
 
-      {/* Card */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -92,7 +116,7 @@ const NewTransaction = () => {
         className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 border border-slate-700/50"
       >
         {/* Tabs */}
-        <div className="flex bg-slate-700/50 rounded-xl p-1 mb-8">
+        <div className="flex bg-slate-700 rounded-xl p-1 mb-8">
           <button
             onClick={() => setActiveTab("expense")}
             type="button"
@@ -102,7 +126,7 @@ const NewTransaction = () => {
                 : "text-slate-400 hover:text-white"
             }`}
           >
-            <DollarSign className="w-5 h-5" />
+            <IndianRupee className="w-5 h-5" />
             <span>Expense</span>
           </button>
           <button
@@ -124,8 +148,7 @@ const NewTransaction = () => {
           {/* Category */}
           <div>
             <label className="flex items-center space-x-2 text-slate-300 text-sm font-medium mb-3">
-              <Tag className="w-4 h-4" />
-              <span>Category</span>
+              <Tag className="w-4 h-4" /> <span>Category</span>
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {categories[activeTab].map((category) => (
@@ -158,8 +181,7 @@ const NewTransaction = () => {
           {/* Description */}
           <div>
             <label className="flex items-center space-x-2 text-slate-300 text-sm font-medium mb-3">
-              <FileText className="w-4 h-4" />
-              <span>Description</span>
+              <FileText className="w-4 h-4" /> <span>Description</span>
             </label>
             <input
               {...register("description", {
@@ -179,17 +201,19 @@ const NewTransaction = () => {
           {/* Amount */}
           <div>
             <label className="flex items-center space-x-2 text-slate-300 text-sm font-medium mb-3">
-              <DollarSign className="w-4 h-4" />
-              <span>Amount</span>
+              <IndianRupee className="w-4 h-4" /> <span>Amount</span>
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 font-medium">
-                $
+                ₹
               </span>
               <input
                 {...register("amount", {
                   required: "Amount is required",
-                  min: { value: 0.01, message: "Amount must be greater than 0" },
+                  min: {
+                    value: 0.01,
+                    message: "Amount must be greater than 0",
+                  },
                 })}
                 type="number"
                 step="0.01"
@@ -207,8 +231,7 @@ const NewTransaction = () => {
           {/* Date */}
           <div>
             <label className="flex items-center space-x-2 text-slate-300 text-sm font-medium mb-3">
-              <Calendar className="w-4 h-4" />
-              <span>Date</span>
+              <Calendar className="w-4 h-4" /> <span>Date</span>
             </label>
             <input
               {...register("date", { required: "Date is required" })}
@@ -216,9 +239,7 @@ const NewTransaction = () => {
               className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
             />
             {errors.date && (
-              <p className="text-red-400 text-sm mt-2">
-                {errors.date.message}
-              </p>
+              <p className="text-red-400 text-sm mt-2">{errors.date.message}</p>
             )}
           </div>
 
@@ -236,7 +257,9 @@ const NewTransaction = () => {
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               {isSubmitting
-                ? "Adding..."
+                ? "Saving..."
+                : editTransactionProp
+                ? "Update Transaction"
                 : `Add ${activeTab === "expense" ? "Expense" : "Income"}`}
             </motion.button>
             <button

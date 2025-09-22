@@ -68,13 +68,13 @@ const BudgetMeter = ({ budget, spent }) => {
           <div className="flex justify-between">
             <span className="text-slate-400">Budget:</span>
             <span className="text-white font-medium">
-              ${budget.toLocaleString()}
+              ₹{budget.toLocaleString()}
             </span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-400">Spent:</span>
             <span className="text-white font-medium">
-              ${spent.toLocaleString()}
+              ₹{spent.toLocaleString()}
             </span>
           </div>
           <div className="flex justify-between border-t border-slate-700 pt-3">
@@ -84,7 +84,7 @@ const BudgetMeter = ({ budget, spent }) => {
                 remaining >= 0 ? "text-green-400" : "text-red-400"
               }`}
             >
-              ${Math.abs(remaining).toLocaleString()}
+             ₹{Math.abs(remaining).toLocaleString()}
             </span>
           </div>
         </div>

@@ -1,5 +1,18 @@
 // src/contexts/TransactionContext.jsx
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { db, auth } from "../firebase";
+import {
+  collection,
+  addDoc,
+  deleteDoc,
+  doc,
+  updateDoc,
+  query,
+  where,
+  onSnapshot,
+  serverTimestamp,
+} from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 
 const TransactionContext = createContext();
 
@@ -12,42 +25,80 @@ export const useTransactions = () => {
 };
 
 export const TransactionProvider = ({ children }) => {
-  const [transactions, setTransactions] = useState(() => {
-    const saved = localStorage.getItem("transactions");
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [transactions, setTransactions] = useState([]);
+  const [user, setUser] = useState(null);
+   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    localStorage.setItem("transactions", JSON.stringify(transactions));
-  }, [transactions]);
+    let unsubscribeSnapshot; // keep ref for cleanup
 
-  const addTransaction = (transaction) => {
-    const newTransaction = {
-      ...transaction,
-      id: Date.now().toString(),
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+
+      // If user logged in, attach Firestore listener
+      if (currentUser) {
+        const q = query(
+          collection(db, "transactions"),
+          where("uid", "==", currentUser.uid)
+        );
+
+        unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
+          const transactionData = querySnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setTransactions(transactionData);
+        });
+      } else {
+        setTransactions([]);
+        if (unsubscribeSnapshot) unsubscribeSnapshot(); // cleanup old snapshot
+      }
+    });
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeSnapshot) unsubscribeSnapshot();
     };
-    setTransactions((prev) => [...prev, newTransaction]);
-  };
-  const updateTransaction = (updatedTransaction) => {
-  setTransactions((prev) =>
-    prev.map((t) => (t.id === updatedTransaction.id ? updatedTransaction : t))
-  );
+  }, []);
+
+  // Add transaction
+  const addTransaction = async (transaction) => {
+  if (!user) return;
+  await addDoc(collection(db, "transactions"), {
+    ...transaction,
+    uid: user.uid,
+    createdAt: serverTimestamp(),
+    amount: Number(transaction.amount), // ensure amount is a number
+  });
 };
 
-  const deleteTransaction = (id) => {
-    setTransactions((prev) => prev.filter((t) => t.id !== id));
+  // Update transaction
+  const updateTransaction = async (updatedTransaction) => {
+    if (!user) return;
+    const transactionRef = doc(db, "transactions", updatedTransaction.id);
+    await updateDoc(transactionRef, updatedTransaction);
+  };
+
+  // Delete transaction
+  const deleteTransaction = async (id) => {
+    if (!user) return;
+    await deleteDoc(doc(db, "transactions", id));
   };
 
   return (
-     <TransactionContext.Provider
-      value={{
-        transactions,
-        addTransaction,
-        deleteTransaction,
-        updateTransaction, 
-      }}
-    >
-      {children}
-    </TransactionContext.Provider>
+   <TransactionContext.Provider
+  value={{
+    transactions,
+    addTransaction,
+    deleteTransaction,
+    updateTransaction,
+    searchQuery,
+    setSearchQuery,
+    
+  
+  }}
+>
+  {children}
+</TransactionContext.Provider>
   );
 };

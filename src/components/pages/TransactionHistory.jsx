@@ -1,37 +1,43 @@
-import React, { useState } from "react";
+// src/pages/TransactionHistory.jsx
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, Filter, DollarSign, Trash2, Calendar } from "lucide-react";
+import { Search, Filter, Edit, Trash2, Calendar } from "lucide-react";
 import { useTransactions } from "../../contexts/TransactionContext";
+import NewTransaction from "./NewTransactions";
 
 const TransactionHistory = () => {
-  const { transactions, deleteTransaction } = useTransactions();
-  const [searchTerm, setSearchTerm] = useState("");
+  const {
+    transactions,
+    deleteTransaction,
+    updateTransaction,
+    searchQuery,
+    setSearchQuery,
+  } = useTransactions();
+
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterType, setFilterType] = useState("all");
+  const [editTransaction, setEditTransaction] = useState(null);
 
-  // Unique categories (from dynamic transactions in localStorage)
+  // Unique categories
   const categories = Array.from(new Set(transactions.map((t) => t.category)));
 
   // Filter logic
   const filteredTransactions = transactions.filter((transaction) => {
     const matchesSearch =
-      transaction.description
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      transaction.category.toLowerCase().includes(searchTerm.toLowerCase());
+      transaction.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      transaction.category?.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesCategory =
       filterCategory === "all" || transaction.category === filterCategory;
 
-    const matchesType =
-      filterType === "all" || transaction.type === filterType;
+    const matchesType = filterType === "all" || transaction.type === filterType;
 
     return matchesSearch && matchesCategory && matchesType;
   });
 
   const handleDelete = (id) => {
     if (window.confirm("Are you sure you want to delete this transaction?")) {
-      deleteTransaction(id); // Updates context + localStorage
+      deleteTransaction(id);
     }
   };
 
@@ -39,11 +45,15 @@ const TransactionHistory = () => {
     <div className="space-y-6">
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-3xl font-bold text-white mb-2">
-          Transaction History
-        </h1>
+        <h1 className="text-3xl font-bold text-white mb-2">Transaction History</h1>
         <p className="text-slate-400">View and manage all your transactions</p>
       </motion.div>
+      {editTransaction && (
+    <NewTransaction
+      editTransactionProp={editTransaction}
+      onEditComplete={() => setEditTransaction(null)}
+    />
+  )}
 
       {/* Filters */}
       <motion.div
@@ -60,8 +70,8 @@ const TransactionHistory = () => {
               <input
                 type="text"
                 placeholder="Search transactions..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
               />
             </div>
@@ -82,6 +92,8 @@ const TransactionHistory = () => {
               ))}
             </select>
           </div>
+
+          
 
           {/* Type Filter */}
           <div className="lg:w-48">
@@ -105,37 +117,21 @@ const TransactionHistory = () => {
         transition={{ delay: 0.2 }}
         className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-slate-700/50 overflow-hidden"
       >
-        <div className="p-6 border-b border-slate-700/50">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-white">Transactions</h3>
-            <span className="text-slate-400 text-sm">
-              {filteredTransactions.length} transaction(s) found
-            </span>
-          </div>
+        <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
+          <h3 className="text-xl font-bold text-white">Transactions</h3>
+          <span className="text-slate-400 text-sm">{filteredTransactions.length} transaction(s) found</span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-700/50">
-                <th className="text-left p-4 text-slate-400 font-medium">
-                  Date
-                </th>
-                <th className="text-left p-4 text-slate-400 font-medium">
-                  Description
-                </th>
-                <th className="text-left p-4 text-slate-400 font-medium">
-                  Category
-                </th>
-                <th className="text-left p-4 text-slate-400 font-medium">
-                  Type
-                </th>
-                <th className="text-right p-4 text-slate-400 font-medium">
-                  Amount
-                </th>
-                <th className="text-right p-4 text-slate-400 font-medium">
-                  Actions
-                </th>
+                <th className="text-left p-4 text-slate-400 font-medium">Date</th>
+                <th className="text-left p-4 text-slate-400 font-medium">Description</th>
+                <th className="text-left p-4 text-slate-400 font-medium">Category</th>
+                <th className="text-left p-4 text-slate-400 font-medium">Type</th>
+                <th className="text-right p-4 text-slate-400 font-medium">Amount</th>
+                <th className="text-right p-4 text-slate-400 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -151,14 +147,16 @@ const TransactionHistory = () => {
                       <div className="flex items-center space-x-2 text-slate-300">
                         <Calendar className="w-4 h-4 text-slate-400" />
                         <span>
-                          {new Date(transaction.date).toLocaleDateString()}
+                          {transaction.date
+                            ? new Date(transaction.date).toLocaleDateString()
+                            : transaction.createdAt?.toDate
+                            ? transaction.createdAt.toDate().toLocaleDateString()
+                            : ""}
                         </span>
                       </div>
                     </td>
                     <td className="p-4">
-                      <p className="text-white font-medium">
-                        {transaction.description}
-                      </p>
+                      <p className="text-white font-medium">{transaction.description}</p>
                     </td>
                     <td className="p-4">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-700 text-slate-300">
@@ -178,20 +176,20 @@ const TransactionHistory = () => {
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end space-x-1">
-                        <DollarSign className="w-4 h-4 text-slate-400" />
-                        <span
-                          className={`font-bold ${
-                            transaction.type === "income"
-                              ? "text-green-400"
-                              : "text-red-400"
-                          }`}
-                        >
+                        <span className="text-slate-400 w-4 h-4 flex items-center justify-center">₹</span>
+                        <span className={`font-bold ${transaction.type === "income" ? "text-green-400" : "text-red-400"}`}>
                           {transaction.type === "income" ? "+" : "-"}
-                          {transaction.amount.toLocaleString()}
+                          {transaction.amount?.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                         </span>
                       </div>
                     </td>
-                    <td className="p-4 text-right">
+                    <td className="p-4 text-right flex justify-end gap-2">
+                      <button
+                        onClick={() => setEditTransaction(transaction)}
+                        className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-all duration-200"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => handleDelete(transaction.id)}
                         className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all duration-200"
@@ -207,9 +205,7 @@ const TransactionHistory = () => {
                     <div className="text-slate-400">
                       <Filter className="w-12 h-12 mx-auto mb-4 opacity-50" />
                       <p className="text-lg mb-2">No transactions found</p>
-                      <p className="text-sm">
-                        Try adjusting your search or filter criteria
-                      </p>
+                      <p className="text-sm">Try adjusting your search or filter criteria</p>
                     </div>
                   </td>
                 </tr>
