@@ -89,25 +89,25 @@ npm run build
 ## 📸 Screenshots
 
 ### 🔑 Login Page  
-![Login Page](./screenshots/login.png)
+![Login Page](screenshots/login.png)
 
 ###🔑SignUp Page
-![SignUp Page](./screenshots/Signup.png)
+![SignUp Page](screenshots/Signup.png)
 
 ### 📊 Dashboard  
-![Dashboard](./screenshots/dashboard.png)
+![Dashboard](screenshots/dashboard.png)
 
 ### ➕ Add Expense  
-![Add Expense](./screenshots/AddExpense.png)
+![Add Expense](screenshots/AddExpense.png)
 
 ### ➕ Add Income
-![Add Income](./screenshots/AddIncome.png)
+![Add Income](screenshots/AddIncome.png)
 
 ### Transaction History
-![Transaction History](./screenshots/TransactionHistory.png)
+![Transaction History](screenshots/TransactionHistory.png)
 
 ### Statistics
-![Statistics](./screenshots/Statistics.png)
+![Statistics](screenshots/Statistics.png)
 
 ### Settings
-![Settings](./screenshots/settings.png)
+![Settings](screenshots/settings.png)
