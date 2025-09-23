@@ -86,4 +86,4 @@ npm run dev
 5️⃣ Build for production
 npm run build
 
-reenshots/settings.png)
+
