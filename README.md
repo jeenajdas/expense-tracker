@@ -86,28 +86,4 @@ npm run dev
 5️⃣ Build for production
 npm run build
 
-## 📸 Screenshots
-
-### 🔑 Login Page  
-![Login Page](screenshots/login.png)
-
-###🔑SignUp Page
-![SignUp Page](screenshots/Signup.png)
-
-### 📊 Dashboard  
-![Dashboard](screenshots/dashboard.png)
-
-### ➕ Add Expense  
-![Add Expense](screenshots/AddExpense.png)
-
-### ➕ Add Income
-![Add Income](screenshots/AddIncome.png)
-
-### Transaction History
-![Transaction History](screenshots/TransactionHistory.png)
-
-### Statistics
-![Statistics](screenshots/Statistics.png)
-
-### Settings
-![Settings](screenshots/settings.png)
+reenshots/settings.png)
